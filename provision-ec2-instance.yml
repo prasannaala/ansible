@@ -20,7 +20,7 @@
         group: "{{ sec_grp }}"
         vpc_subnet_id: "{{ subnet }}"
         monitoring: no
-        instance_tags: "{'Name':'Jenkins-Master','role':'CI'}"
+        instance_tags: "{'Name':'TEST','role':'TESTING-PURPOSE'}"
         count: "{{ count }}"
         assign_public_ip: yes
         wait: yes
