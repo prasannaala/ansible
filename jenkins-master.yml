@@ -1,0 +1,70 @@
+---
+- name: Launch EC2 Instance
+  hosts: 127.0.0.1
+  gather_facts: false
+  connection: local
+  vars:
+    count: 1
+    ami: ami-0189d76e
+    region: ap-south-1
+    instance_type: t2.micro
+    subnet: subnet-339a0d5b
+    sec_grp: MYWEB
+  tasks:
+    - name: Launch EC2 instance AWS Mumbai Region ( ap-south-1 )
+      ec2:
+        image: "{{ ami }}"
+        region: "{{ region }}"
+        instance_type: "{{ instance_type }}"
+        keypair: "gcptest-mumbai"
+        group: "{{ sec_grp }}"
+        vpc_subnet_id: "{{ subnet }}"
+        monitoring: no
+        instance_tags: "{'Name':'Jenkins-Master','role':'CI'}"
+        count: "{{ count }}"
+        assign_public_ip: yes
+        wait: yes
+      register: ec2
+
+    - debug: var=ec2.instances
+
+ #   - name: Associating after allocating elastic IP
+ #     eip:
+ #       in_vpc: yes
+ #       reuse_existing_ip_allowed: yes
+ #       state: present
+ #       region: "{{ region }}"
+ #       device_id: "{{ ec2.instance_id[0] }}"
+ #       register: elastic_ip
+    
+    - name: Add new instance to host group
+      add_host:
+        hostname: "{{ item.private_ip }}"
+        groupname: launched
+      with_items: "{{ ec2.instances }}"
+
+
+    - name: Wait for SSH to come up
+      wait_for:
+        host: "{{ item.private_ip }}"
+        port: 22
+        delay: 60
+        timeout: 600
+        state: started
+      with_items: "{{ ec2.instances }}"
+
+- name: Configure newly launched instance(s)
+  hosts: launched
+  user: ubuntu
+  sudo: True
+  gather_facts: False
+  pre_tasks:
+    - name: Install python2 for Ansible
+      raw: bash -c "test -e /usr/bin/python || (apt -qqy update && apt install -qqy python-minimal)"
+      register: output
+      changed_when: output.stdout != ""
+    - name: Gathering Facts
+      setup:
+
+  roles:
+    - jenkins.master
